@@ -1,0 +1,287 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "source": [],
+      "metadata": {
+        "id": "riWaw4K4Noii"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install python-pptx\n",
+        "\n",
+        "from pptx import Presentation\n",
+        "from pptx.util import Inches, Pt\n",
+        "from google.colab import files\n",
+        "import matplotlib.pyplot as plt\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "\n",
+        "prs = Presentation()\n",
+        "\n",
+        "title_slide_layout = prs.slide_layouts[0]\n",
+        "content_slide_layout = prs.slide_layouts[1]\n",
+        "\n",
+        "slide = prs.slides.add_slide(title_slide_layout)\n",
+        "slide.shapes.title.text = \"Week 4: Regression and Correlation Part I\"\n",
+        "slide.placeholders[1].text = (\n",
+        "    \"Advanced Statistical Methods and Modeling II STA 9203\\n\"\n",
+        "    \"Lecturer: Dr Lekia Nkpordee\\n\"\n",
+        "    \"Department of Mathematics and Statistics\\n\"\n",
+        "    \"School of Mathematics and Computing SOMAC\"\n",
+        ")\n",
+        "\n",
+        "def add_slide(title, content):\n",
+        "    slide = prs.slides.add_slide(content_slide_layout)\n",
+        "    slide.shapes.title.text = title\n",
+        "    slide.placeholders[1].text = content\n",
+        "    return slide\n",
+        "\n",
+        "slides_data = [\n",
+        "    (\"Lesson Overview\",\n",
+        "     \"Week 4\\nDuration 3 hours\\nTopic Regression and Correlation Part I\\n\"\n",
+        "     \"Core areas simple regression least squares normal regression\\nMethod lecture and coding lab\"),\n",
+        "\n",
+        "    (\"Learning Objectives\",\n",
+        "     \"At the end of the lesson students should be able to explain simple regression\\n\"\n",
+        "     \"Describe least squares\\nRecognise model assumptions\\nFit a model in STATA or SPSS\"),\n",
+        "\n",
+        "    (\"Why Regression Matters\",\n",
+        "     \"Helps describe relationships\\nSupports prediction\\nApplied in health economics and social sciences\\n\"\n",
+        "     \"Forms foundation for advanced modeling\"),\n",
+        "\n",
+        "    (\"Intro to Simple Linear Regression\",\n",
+        "     \"Model Y = b0 + b1X + error\\nX is predictor Y is outcome\\n\"\n",
+        "     \"Goal is to estimate b0 and b1\"),\n",
+        "\n",
+        "    (\"Meaning of b0 and b1\",\n",
+        "     \"b0 is predicted Y when X is zero\\n\"\n",
+        "     \"b1 is change in Y when X increases by one\\n\"\n",
+        "     \"Sign of b1 shows direction of relationship\"),\n",
+        "\n",
+        "    (\"Error Term and Variability\",\n",
+        "     \"Residuals are unexplained variation\\nLeast squares reduces total squared error\"),\n",
+        "\n",
+        "    (\"Least Squares Method\",\n",
+        "     \"Estimates best fitting line\\nMinimises sum of squared residuals\"),\n",
+        "\n",
+        "    (\"Normal Regression Framework\",\n",
+        "     \"Assumes errors follow normal pattern\\nSupports inference with t tests and confidence intervals\"),\n",
+        "\n",
+        "    (\"Regression Assumptions\",\n",
+        "     \"Linearity\\nIndependence\\nConstant variance\\nNormality\"),\n",
+        "\n",
+        "    (\"Checking Model Assumptions\",\n",
+        "     \"Residual plot\\nHistogram of residuals\\nTest for normality\"),\n",
+        "\n",
+        "    (\"Interpreting Regression Output\",\n",
+        "     \"Coefficients\\nStandard error\\nT value\\nP value\"),\n",
+        "\n",
+        "    (\"Correlation\",\n",
+        "     \"Strength and direction of linear association\\nRange negative one to one\"),\n",
+        "\n",
+        "    (\"Regression vs Correlation\",\n",
+        "     \"Regression predicts Y from X while correlation only measures association\"),\n",
+        "\n",
+        "    (\"Coding Lab Session\",\n",
+        "     \"Load dataset\\nRun regression\\nInterpret results\"),\n",
+        "\n",
+        "    (\"Take Home Assignment\",\n",
+        "     \"Fit regression using dataset\\nCheck assumptions\\nInterpret coefficients\"),\n",
+        "\n",
+        "    (\"Next Week Preview\",\n",
+        "     \"Multiple regression\\nVariable selection\\nDiagnostics\")\n",
+        "]\n",
+        "\n",
+        "for title, content in slides_data:\n",
+        "    add_slide(title, content)\n",
+        "\n",
+        "# --------------------------\n",
+        "# Slide with Table\n",
+        "# --------------------------\n",
+        "slide = add_slide(\"Sample Regression Table\", \"This table shows X and Y values used in class.\")\n",
+        "\n",
+        "rows = 6\n",
+        "cols = 3\n",
+        "table = slide.shapes.add_table(rows, cols, Inches(0.5), Inches(2), Inches(9), Inches(3)).table\n",
+        "\n",
+        "table.cell(0,0).text = \"Observation\"\n",
+        "table.cell(0,1).text = \"X\"\n",
+        "table.cell(0,2).text = \"Y\"\n",
+        "\n",
+        "data_x = [5, 7, 9, 11, 13]\n",
+        "data_y = [12, 15, 18, 21, 25]\n",
+        "\n",
+        "for i in range(5):\n",
+        "    table.cell(i+1,0).text = str(i+1)\n",
+        "    table.cell(i+1,1).text = str(data_x[i])\n",
+        "    table.cell(i+1,2).text = str(data_y[i])\n",
+        "\n",
+        "# --------------------------\n",
+        "# Slide with Graph\n",
+        "# --------------------------\n",
+        "plt.figure(figsize=(5,4))\n",
+        "plt.scatter(data_x, data_y)\n",
+        "plt.title(\"Sample Scatter Plot\")\n",
+        "plt.xlabel(\"X\")\n",
+        "plt.ylabel(\"Y\")\n",
+        "plt.savefig(\"scatter.png\", dpi=150, bbox_inches=\"tight\")\n",
+        "plt.close()\n",
+        "\n",
+        "graph_slide = prs.slides.add_slide(content_slide_layout)\n",
+        "graph_slide.shapes.title.text = \"Graph Example Scatter Plot\"\n",
+        "graph_slide.shapes.add_picture(\"scatter.png\", Inches(1), Inches(1.5), width=Inches(6))\n",
+        "\n",
+        "# --------------------------\n",
+        "# Save and Download\n",
+        "# --------------------------\n",
+        "\n",
+        "file_path = \"/content/Week4_Regression_Correlation_Enhanced_STA9203.pptx\"\n",
+        "prs.save(file_path)\n",
+        "\n",
+        "files.download(file_path)\n",
+        "\n",
+        "print(\"Your PPT is ready for download. Upload manually to your GitHub page. GitHub upload cannot be automated from Colab because it requires authentication and internet access.\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 260
+        },
+        "id": "VveC3U3ENn4C",
+        "outputId": "d46542cb-4daf-48a8-a97f-7958aa0c1abb"
+      },
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Collecting python-pptx\n",
+            "  Downloading python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)\n",
+            "Requirement already satisfied: Pillow>=3.3.2 in /usr/local/lib/python3.12/dist-packages (from python-pptx) (11.3.0)\n",
+            "Collecting XlsxWriter>=0.5.7 (from python-pptx)\n",
+            "  Downloading xlsxwriter-3.2.9-py3-none-any.whl.metadata (2.7 kB)\n",
+            "Requirement already satisfied: lxml>=3.1.0 in /usr/local/lib/python3.12/dist-packages (from python-pptx) (5.4.0)\n",
+            "Requirement already satisfied: typing-extensions>=4.9.0 in /usr/local/lib/python3.12/dist-packages (from python-pptx) (4.15.0)\n",
+            "Downloading python_pptx-1.0.2-py3-none-any.whl (472 kB)\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m472.8/472.8 kB\u001b[0m \u001b[31m8.6 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25hDownloading xlsxwriter-3.2.9-py3-none-any.whl (175 kB)\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m175.3/175.3 kB\u001b[0m \u001b[31m14.0 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25hInstalling collected packages: XlsxWriter, python-pptx\n",
+            "Successfully installed XlsxWriter-3.2.9 python-pptx-1.0.2\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ],
+            "application/javascript": [
+              "\n",
+              "    async function download(id, filename, size) {\n",
+              "      if (!google.colab.kernel.accessAllowed) {\n",
+              "        return;\n",
+              "      }\n",
+              "      const div = document.createElement('div');\n",
+              "      const label = document.createElement('label');\n",
+              "      label.textContent = `Downloading \"${filename}\": `;\n",
+              "      div.appendChild(label);\n",
+              "      const progress = document.createElement('progress');\n",
+              "      progress.max = size;\n",
+              "      div.appendChild(progress);\n",
+              "      document.body.appendChild(div);\n",
+              "\n",
+              "      const buffers = [];\n",
+              "      let downloaded = 0;\n",
+              "\n",
+              "      const channel = await google.colab.kernel.comms.open(id);\n",
+              "      // Send a message to notify the kernel that we're ready.\n",
+              "      channel.send({})\n",
+              "\n",
+              "      for await (const message of channel.messages) {\n",
+              "        // Send a message to notify the kernel that we're ready.\n",
+              "        channel.send({})\n",
+              "        if (message.buffers) {\n",
+              "          for (const buffer of message.buffers) {\n",
+              "            buffers.push(buffer);\n",
+              "            downloaded += buffer.byteLength;\n",
+              "            progress.value = downloaded;\n",
+              "          }\n",
+              "        }\n",
+              "      }\n",
+              "      const blob = new Blob(buffers, {type: 'application/binary'});\n",
+              "      const a = document.createElement('a');\n",
+              "      a.href = window.URL.createObjectURL(blob);\n",
+              "      a.download = filename;\n",
+              "      div.appendChild(a);\n",
+              "      a.click();\n",
+              "      div.remove();\n",
+              "    }\n",
+              "  "
+            ]
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ],
+            "application/javascript": [
+              "download(\"download_0446dfd1-a587-465c-8fa8-28e70a2a748a\", \"Week4_Regression_Correlation_Enhanced_STA9203.pptx\", 60990)"
+            ]
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Your PPT is ready for download. Upload manually to your GitHub page. GitHub upload cannot be automated from Colab because it requires authentication and internet access.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "thh-3RuLQFFm"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "name": "Prompting.ipynb",
+      "provenance": []
+    },
+    "google": {
+      "image_path": "/static/site-assets/images/docs/logo-python.svg",
+      "keywords": [
+        "examples",
+        "gemini",
+        "beginner",
+        "googleai",
+        "quickstart",
+        "python",
+        "text",
+        "chat",
+        "vision",
+        "embed"
+      ]
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
