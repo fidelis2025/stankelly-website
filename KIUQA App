@@ -1,2 +1,360 @@
 https://huggingface.co/spaces/fidelis1988/KIUQA/tree/main
 https://fidelis1988-kiuqa.hf.space/
+
+import gradio as gr
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+import sqlite3
+from textblob import TextBlob
+from fpdf import FPDF
+import os
+
+# -----------------------------
+# Sample Data
+# -----------------------------
+def generate_sample_data():
+    np.random.seed(42)
+    df = pd.DataFrame({
+        "student_id": range(1, 51),
+        "attendance": np.random.randint(50, 101, 50),
+        "assignment_score": np.random.randint(40, 101, 50),
+        "exam_score": np.random.randint(35, 101, 50),
+        "participation": np.random.randint(0, 11, 50),
+        "academic_risk": np.random.choice([0, 1], 50, p=[0.7, 0.3]),
+        "teaching_evaluation": np.random.randint(60, 101, 50),
+        "research_output": np.random.randint(0, 21, 50),
+        "training_completed": np.random.randint(0, 2, 50)
+    })
+    return df
+
+sample_df = generate_sample_data()
+
+# -----------------------------
+# Database setup (SQLite)
+# -----------------------------
+DB_FILE = "kiuqa.db"
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS uploads
+             (id INTEGER PRIMARY KEY, filename TEXT, role TEXT, data TEXT)''')
+conn.commit()
+
+# -----------------------------
+# Authentication
+# -----------------------------
+USERS = {
+    "admin": {"password": "admin123", "role": "admin"},
+    "staff": {"password": "staff123", "role": "staff"},
+    "student": {"password": "student123", "role": "student"}
+}
+
+def authenticate(username, password):
+    user = USERS.get(username)
+    if user and user["password"] == password:
+        return f"Logged in as {username} ({user['role']})", user["role"]
+    return "Invalid username or password", None
+
+def signup(username, password, role):
+    if username in USERS:
+        return "Username already exists!", None
+    if role not in ["admin", "staff", "student"]:
+        return "Invalid role! Choose admin, staff, or student.", None
+    USERS[username] = {"password": password, "role": role}
+    return f"User {username} registered successfully as {role}.", role
+
+# -----------------------------
+# Data Loading
+# -----------------------------
+def load_data(file):
+    if file is None:
+        return sample_df.copy(), "Using sample data"
+    try:
+        if file.name.endswith(".csv"):
+            df = pd.read_csv(file.name)
+        else:
+            df = pd.read_excel(file.name)
+        # Save to DB for demo
+        c.execute("INSERT INTO uploads (filename, role, data) VALUES (?, ?, ?)",
+                  (file.name, "staff", df.to_csv(index=False)))
+        conn.commit()
+        return df, "File loaded successfully"
+    except Exception as e:
+        return None, f"Error: {str(e)}"
+
+# -----------------------------
+# Data Quality
+# -----------------------------
+def data_quality_checks(df):
+    if df is None:
+        return {}
+    missing = int(df.isnull().sum().sum())
+    numeric_df = df.select_dtypes(include=np.number)
+    outliers = 0
+    if not numeric_df.empty:
+        z_scores = np.abs((numeric_df - numeric_df.mean()) / numeric_df.std())
+        outliers = int((z_scores > 3).sum().sum())
+    return {"Total records": df.shape[0],
+            "Total variables": df.shape[1],
+            "Missing values": missing,
+            "Potential outliers": outliers}
+
+# -----------------------------
+# Performance Summary
+# -----------------------------
+def performance_summary(df):
+    if df is None:
+        return None
+    numeric_df = df.select_dtypes(include=np.number)
+    if numeric_df.empty:
+        return None
+    return numeric_df.describe().round(2)
+
+# -----------------------------
+# Trend Plot
+# -----------------------------
+def trend_plot(df, column):
+    if df is None or column not in df.columns:
+        return None
+    fig, ax = plt.subplots()
+    ax.plot(df[column].values, marker='o')
+    ax.set_title(f"Trend of {column}")
+    ax.set_xlabel("Index")
+    ax.set_ylabel(column)
+    return fig
+
+# -----------------------------
+# Predictive Analytics
+# -----------------------------
+def student_risk_model(df, target_column):
+    if df is None or target_column not in df.columns:
+        return "Invalid dataset or target variable."
+    numeric_df = df.select_dtypes(include=np.number).dropna()
+    if numeric_df.shape[0] < 10:
+        return "Not enough data for modeling."
+    X = numeric_df.drop(columns=[target_column])
+    y = numeric_df[target_column]
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X, y)
+    preds = model.predict(X)
+    acc = accuracy_score(y, preds)
+    return {"Model type": "Logistic Regression",
+            "Accuracy": round(acc, 3),
+            "Interpretation": "Higher predicted probability indicates higher academic risk."}
+
+# -----------------------------
+# NLP Sentiment Analysis
+# -----------------------------
+def sentiment_analysis(text):
+    if not text:
+        return "No text provided"
+    blob = TextBlob(text)
+    return {"Polarity": round(blob.sentiment.polarity, 3),
+            "Subjectivity": round(blob.sentiment.subjectivity, 3)}
+
+# -----------------------------
+# PDF Report Generation
+# -----------------------------
+def generate_pdf(df, filename="report.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="KIU QA Dashboard Report", ln=True, align="C")
+    pdf.ln(10)
+    for col in df.columns:
+        pdf.cell(40, 10, col, 1)
+    pdf.ln()
+    for i in range(min(10, len(df))):
+        for val in df.iloc[i]:
+            pdf.cell(40, 10, str(val), 1)
+        pdf.ln()
+    pdf.output(filename)
+    return filename
+
+# -----------------------------
+# AI Narrative Generation (Enhanced)
+# -----------------------------
+def generate_narrative(df, dq_results=None, perf_summary=None, trend_column=None, trend_fig=None, predictive_results=None, sentiment_results=None):
+    """
+    Generates an AI-style narrative summarizing all available analyses:
+    - Data Quality Checks
+    - Performance Summary
+    - Trend Monitoring
+    - Predictive Model Results
+    - Sentiment Analysis
+    """
+
+    if df is None or df.empty:
+        return "No data available for analysis."
+
+    narrative = f"Dataset Overview:\n"
+    narrative += f"- Total records: {df.shape[0]}\n"
+    narrative += f"- Total variables: {df.shape[1]}\n\n"
+
+    # Data Quality Summary
+    if dq_results:
+        narrative += "Data Quality Check:\n"
+        narrative += f"- Missing values: {dq_results.get('Missing values', 'N/A')}\n"
+        narrative += f"- Potential outliers: {dq_results.get('Potential outliers', 'N/A')}\n\n"
+
+    # Performance Summary
+    if perf_summary is not None:
+        narrative += "Performance Summary:\n"
+        numeric_cols = perf_summary.columns if hasattr(perf_summary, "columns") else []
+        for col in numeric_cols:
+            mean_val = perf_summary[col]["mean"] if "mean" in perf_summary[col] else np.nan
+            std_val = perf_summary[col]["std"] if "std" in perf_summary[col] else np.nan
+            narrative += f"- {col}: Mean = {mean_val:.2f}, Std Dev = {std_val:.2f}\n"
+        narrative += "\n"
+
+    # Trend Observations
+    if trend_column and trend_fig is not None:
+        trend_values = df[trend_column].values
+        if len(trend_values) > 1:
+            trend_change = trend_values[-1] - trend_values[0]
+            direction = "increased" if trend_change > 0 else "decreased" if trend_change < 0 else "remained stable"
+            narrative += f"Trend Monitoring:\n- The {trend_column} has {direction} over the observed period (change of {trend_change:.2f}).\n\n"
+
+    # Predictive Model Results
+    if predictive_results:
+        narrative += "Predictive Model Insights:\n"
+        model_type = predictive_results.get("Model type", "N/A")
+        accuracy = predictive_results.get("Accuracy", "N/A")
+        interpretation = predictive_results.get("Interpretation", "")
+        narrative += f"- Model: {model_type}, Accuracy: {accuracy}\n"
+        narrative += f"- Interpretation: {interpretation}\n\n"
+
+    # Sentiment Analysis
+    if sentiment_results:
+        polarity = sentiment_results.get("Polarity", "N/A")
+        subjectivity = sentiment_results.get("Subjectivity", "N/A")
+        sentiment_desc = "neutral"
+        if polarity > 0.1:
+            sentiment_desc = "positive"
+        elif polarity < -0.1:
+            sentiment_desc = "negative"
+        narrative += "Sentiment Analysis:\n"
+        narrative += f"- Polarity: {polarity}, Subjectivity: {subjectivity} → Overall sentiment is {sentiment_desc}.\n\n"
+
+    narrative += "Overall Summary:\n"
+    narrative += "- The data provides insights into both student and staff performance.\n"
+    narrative += "- Early identification of at-risk students and staff can guide timely interventions.\n"
+    narrative += "- Continuous monitoring of trends and sentiment feedback supports evidence-based decision making."
+
+    return narrative
+
+# -----------------------------
+# Gradio Interface
+# -----------------------------
+with gr.Blocks(title="KIU QA Dashboard with Enhanced Features") as demo:
+    gr.Markdown("## KIU Quality Assurance Dashboard and Predictive Analytics System")
+    gr.Markdown("Enhanced MVP with authentication, sentiment analysis, PDF reports, and AI summaries.")
+
+    # -----------------------------
+    # Authentication
+    # -----------------------------
+    with gr.Tab("Login / Signup"):
+       # -----------------------------
+       # Login Section
+       # -----------------------------
+       gr.Markdown("### Login")
+       username = gr.Textbox(label="Username")
+       password = gr.Textbox(label="Password", type="password")
+       login_status = gr.Textbox(label="Status")
+       user_role = gr.State(value=None)
+
+       login_button = gr.Button("Login")
+       login_button.click(authenticate, inputs=[username, password], outputs=[login_status, user_role])
+
+       # -----------------------------
+       # Signup Section
+       # -----------------------------
+       gr.Markdown("### Signup (New User)")
+       new_username = gr.Textbox(label="New Username")
+       new_password = gr.Textbox(label="New Password", type="password")
+       new_role = gr.Dropdown(choices=["admin", "staff", "student"], label="Role")
+       signup_status = gr.Textbox(label="Signup Status")
+       signup_button = gr.Button("Signup")
+       signup_button.click(signup, inputs=[new_username, new_password, new_role], outputs=[signup_status, user_role])
+
+    # -----------------------------
+    # Main Dashboard Tabs
+    # -----------------------------
+    with gr.Tab("Dashboard"):
+        file_input = gr.File(label="Upload Student or Staff Dataset (CSV/Excel)")
+        load_status = gr.Textbox(label="Load Status")
+        data_output = gr.Dataframe(label="Data Preview")
+
+        file_input.change(
+            fn=lambda f: (load_data(f)[1], load_data(f)[0].head() if load_data(f)[0] is not None else None),
+            inputs=file_input,
+            outputs=[load_status, data_output]
+        )
+
+        dq_button = gr.Button("Run Data Quality Checks")
+        dq_output = gr.JSON(label="Data Quality Report")
+        dq_button.click(
+            fn=lambda f: data_quality_checks(load_data(f)[0]),
+            inputs=file_input,
+            outputs=dq_output
+        )
+
+        perf_button = gr.Button("Performance Summary")
+        perf_output = gr.Dataframe(label="Descriptive Stats")
+        perf_button.click(
+            fn=lambda f: performance_summary(load_data(f)[0]),
+            inputs=file_input,
+            outputs=perf_output
+        )
+
+        trend_column = gr.Textbox(label="Enter numeric column for trend")
+        trend_button = gr.Button("Plot Trend")
+        trend_output = gr.Plot()
+        trend_button.click(
+            fn=lambda f, c: trend_plot(load_data(f)[0], c),
+            inputs=[file_input, trend_column],
+            outputs=trend_output
+        )
+
+        target_col = gr.Textbox(label="Target column (e.g. academic_risk)")
+        model_button = gr.Button("Run Student Risk Model")
+        model_output = gr.JSON(label="Predictive Model Results")
+        model_button.click(
+            fn=lambda f, t: student_risk_model(load_data(f)[0], t),
+            inputs=[file_input, target_col],
+            outputs=model_output
+        )
+
+        sentiment_text = gr.Textbox(label="Enter survey/feedback text")
+        sentiment_button = gr.Button("Analyze Sentiment")
+        sentiment_output = gr.JSON(label="Sentiment Analysis")
+        sentiment_button.click(sentiment_analysis, inputs=sentiment_text, outputs=sentiment_output)
+
+        pdf_button = gr.Button("Generate PDF Report")
+        pdf_output = gr.File(label="Download PDF")
+        pdf_button.click(lambda f: generate_pdf(load_data(f)[0]) if load_data(f)[0] is not None else None,
+                         inputs=file_input, outputs=pdf_output)
+
+        narrative_button = gr.Button("Generate AI Narrative Summary")
+        narrative_output = gr.Textbox(
+            label="AI Generated Narrative Report",
+            lines=15
+        )
+        
+        narrative_button.click(
+           fn=lambda f, trend_col=None, target_col=None, sentiment_text=None: generate_narrative(
+              df=load_data(f)[0],
+              dq_results=data_quality_checks(load_data(f)[0]),
+              perf_summary=performance_summary(load_data(f)[0]),
+              trend_column=trend_col,
+              trend_fig=trend_plot(load_data(f)[0], trend_col) if trend_col else None,
+              predictive_results=student_risk_model(load_data(f)[0], target_col) if target_col else None,
+              sentiment_results=sentiment_analysis(sentiment_text) if sentiment_text else None
+          ),
+          inputs=[file_input, trend_column, target_col, sentiment_text],
+          outputs=narrative_output
+        )
+
+demo.launch()
